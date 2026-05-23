@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback, lazy, Suspense, Component } from "react";
 import { createRoot } from "react-dom/client";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -18,9 +18,11 @@ import {
   ENDING_START,
 } from "./journey";
 
+const Scene = lazy(() => import("./Scene"));
 gsap.registerPlugin(ScrollTrigger);
 
 const reducedMotionQuery = matchMedia("(prefers-reduced-motion: reduce)");
+const mobileQuery = matchMedia("(max-width: 699px)");
 
 const legacyStationIds: Record<string, string> = { bergarbeiter: "bergbaumaschine" };
 
@@ -44,15 +46,46 @@ function Icon({
   );
 }
 
+class SceneBoundary extends Component<{ children: React.ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? (
+      <div className="fallback">
+        <p>
+          Die 3D-Ansicht ist auf diesem Gerät nicht verfügbar.
+          <br />
+          Die Geschichte lässt sich trotzdem weiter entdecken.
+        </p>
+      </div>
+    ) : (
+      this.props.children
+    );
+  }
+}
+
 function App() {
   const journeyRef = useRef<HTMLElement>(null);
+  // The scene reads the ref every frame
+  const progressRef = useRef(0);
   const [progress, setProgress] = useState(0);
+  const [ready, setReady] = useState(false);
   const [reduced, setReduced] = useState(() => reducedMotionQuery.matches);
+  const [mobile, setMobile] = useState(() => mobileQuery.matches);
 
   useEffect(() => {
-    const update = () => setReduced(reducedMotionQuery.matches);
+    const update = () => {
+      setReduced(reducedMotionQuery.matches);
+      setMobile(mobileQuery.matches);
+    };
     reducedMotionQuery.addEventListener("change", update);
-    return () => reducedMotionQuery.removeEventListener("change", update);
+    mobileQuery.addEventListener("change", update);
+    return () => {
+      reducedMotionQuery.removeEventListener("change", update);
+      mobileQuery.removeEventListener("change", update);
+    };
   }, []);
 
   useEffect(() => {
@@ -61,6 +94,7 @@ function App() {
       start: "top top",
       end: "bottom bottom",
       onUpdate: (self) => {
+        progressRef.current = self.progress;
         setProgress(self.progress);
       },
     });
@@ -73,6 +107,8 @@ function App() {
     }
     return () => trigger.kill();
   }, []);
+
+  const sceneReady = useCallback(() => setReady(true), []);
 
   const activeStation = stationIndex(progress);
   const intro = progress < INTRO_END;
@@ -106,7 +142,13 @@ function App() {
       <a className="skip" href="#story">
         Zur Geschichte
       </a>
-      <div className="world" aria-hidden="true" />
+      <div className="world" aria-hidden="true">
+        <SceneBoundary>
+          <Suspense fallback={null}>
+            <Scene progress={progressRef} reduced={reduced} mobile={mobile} onReady={sceneReady} />
+          </Suspense>
+        </SceneBoundary>
+      </div>
       <div className="shade" />
       <header>
         <a className="brand" href="#" onClick={scrollToTop} aria-label="RUHR – zurück zum Anfang">
@@ -229,6 +271,12 @@ function App() {
           {reduced ? "Reduzierte Bewegung" : "Eine digitale Spurensuche"}
         </span>
       </footer>
+      {!ready && (
+        <div className="loading" role="status">
+          <span />
+          Das Revier erwacht …
+        </div>
+      )}
       <noscript>Für die interaktive 3D-Reise wird JavaScript benötigt.</noscript>
     </>
   );
