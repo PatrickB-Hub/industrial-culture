@@ -7,6 +7,7 @@ import { makeTextures, seeded, rimShader } from "./materials";
 import type { Textures } from "./materials";
 import { journeyTime, stationIndex, ENDING_START } from "./journey";
 import { pipe } from "./pipeGeometry";
+import Headframe from "./Headframe";
 import noise from "./shaders/noise.glsl?raw";
 import skyVertex from "./shaders/sky.vert?raw";
 import skyFragment from "./shaders/sky.frag?raw";
@@ -903,6 +904,7 @@ function World({ progress, reduced, mobile, onReady }: SceneProps) {
         window={textures.window}
       />
       <Chimney brick={textures.brick} />
+      <Headframe textures={textures} reduced={reduced} />
       <HallConnections textures={textures} />
       <Catwalk />
       <Tracks />
