@@ -6,9 +6,14 @@ import * as THREE from "three";
 import { makeTextures, seeded, rimShader } from "./materials";
 import type { Textures } from "./materials";
 import { journeyTime, stationIndex, ENDING_START } from "./journey";
+import Particles from "./Particles";
 import { pipe } from "./pipeGeometry";
+import YardAtmosphere from "./YardAtmosphere";
 import Headframe from "./Headframe";
 import noise from "./shaders/noise.glsl?raw";
+import planeVertex from "./shaders/plane.vert?raw";
+import fogFragment from "./shaders/fog.frag?raw";
+import lightShaftFragment from "./shaders/lightShaft.frag?raw";
 import skyVertex from "./shaders/sky.vert?raw";
 import skyFragment from "./shaders/sky.frag?raw";
 
@@ -758,6 +763,47 @@ function Catwalk() {
   );
 }
 
+// Drifting fog banks across the track, dust and sparks, and one soft light
+function Atmosphere({ reduced, mobile }: { reduced: boolean; mobile: boolean }) {
+  const fog = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        uniforms: { time: { value: 0 }, opacity: { value: mobile ? 0.22 : 0.35 } },
+        vertexShader: planeVertex,
+        fragmentShader: noise + fogFragment,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    [mobile],
+  );
+
+  useFrame((_, delta) => {
+    if (!reduced) fog.uniforms.time.value += Math.min(delta, 0.05);
+  });
+
+  return (
+    <>
+      {[-8, -31, -53, -58, -65, -75, -79, -85, -89, -101].map((z) => (
+        <mesh key={z} position={[0, 3.4, z]} material={fog}>
+          <planeGeometry args={[65, 10]} />
+        </mesh>
+      ))}
+      <Particles mobile={mobile} reduced={reduced} />
+      <mesh position={[1, 15, -27]} rotation={[0, 0, -0.4]}>
+        <planeGeometry args={[3, 36]} />
+        <shaderMaterial
+          transparent
+          depthWrite={false}
+          side={THREE.DoubleSide}
+          vertexShader={planeVertex}
+          fragmentShader={lightShaftFragment}
+        />
+      </mesh>
+    </>
+  );
+}
+
 // Camera position and look-at target per station
 const cameraPath = new THREE.CatmullRomCurve3(
   [
@@ -850,6 +896,9 @@ function CloudSky() {
   );
 }
 
+const hideYardAtmosphere =
+  import.meta.env.DEV && new URLSearchParams(location.search).has("baselineYard");
+
 function World({ progress, reduced, mobile, onReady }: SceneProps) {
   const textures = useMemo(makeTextures, []);
 
@@ -879,6 +928,7 @@ function World({ progress, reduced, mobile, onReady }: SceneProps) {
       <Ground textures={textures} mobile={mobile} />
       <IndustrialLayers />
       <DistantServices />
+      {!hideYardAtmosphere && <YardAtmosphere textures={textures} reduced={reduced} />}
       <Hall
         position={[17, 0, 1]}
         length={35}
@@ -910,6 +960,7 @@ function World({ progress, reduced, mobile, onReady }: SceneProps) {
       <Tracks />
       <YardDetails />
       <CoalHeaps />
+      <Atmosphere reduced={reduced} mobile={mobile} />
       <CloudSky />
     </>
   );
