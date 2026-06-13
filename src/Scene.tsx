@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect } from "react";
+import React, { useMemo, useRef, useEffect, useState, Suspense, lazy } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import type { ThreeElements } from "@react-three/fiber";
 import { MeshReflectorMaterial } from "@react-three/drei";
@@ -25,6 +25,9 @@ type SceneProps = {
   mobile: boolean;
   onReady: () => void;
 };
+
+const Lore = lazy(() => import("./Lore"));
+const MiningMachine = lazy(() => import("./MiningMachine"));
 
 // Shared materials
 const steel = new THREE.MeshStandardMaterial({
@@ -901,6 +904,8 @@ const hideYardAtmosphere =
 
 function World({ progress, reduced, mobile, onReady }: SceneProps) {
   const textures = useMemo(makeTextures, []);
+  const [loadLore, setLoadLore] = useState(false);
+  const [loadMachine, setLoadMachine] = useState(false);
 
   useEffect(() => {
     rust.map = textures.rust;
@@ -916,6 +921,12 @@ function World({ progress, reduced, mobile, onReady }: SceneProps) {
     onReady();
     return () => Object.values(textures).forEach((texture) => texture.dispose());
   }, []);
+
+  // Load the heavier models a little before the camera reaches them
+  useFrame(() => {
+    if (!loadLore && progress.current > 0.14) setLoadLore(true);
+    if (!loadMachine && progress.current > 0.48) setLoadMachine(true);
+  });
 
   return (
     <>
@@ -960,8 +971,19 @@ function World({ progress, reduced, mobile, onReady }: SceneProps) {
       <Tracks />
       <YardDetails />
       <CoalHeaps />
+      <pointLight position={[-3, 3, -58]} color="#d7e0ea" intensity={45} distance={12} />
       <Atmosphere reduced={reduced} mobile={mobile} />
       <CloudSky />
+      {loadLore && (
+        <Suspense fallback={null}>
+          <Lore />
+        </Suspense>
+      )}
+      {loadMachine && (
+        <Suspense fallback={null}>
+          <MiningMachine />
+        </Suspense>
+      )}
     </>
   );
 }
