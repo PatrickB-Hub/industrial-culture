@@ -1,10 +1,9 @@
-# RUHR — Was bleibt, bewegt.
+# Industrial culture
 
-Immersives Nutzererlebnis. React, TypeScript, SCSS, Three.js / react-three-fiber, GSAP ScrollTrigger.
+Immersive user experience. React, TypeScript, SCSS, Three.js / react-three-fiber, GSAP ScrollTrigger.
 
 ```sh
 npm install
-npm run dev --port 5186
+npm run dev
 npm run build
 npm test
-```
