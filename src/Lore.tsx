@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { seeded } from "./materials";
 
@@ -53,11 +54,13 @@ function makeMarkingTexture(random: () => number) {
   return texture;
 }
 
-function createLore() {
+function createLore(gl: THREE.WebGLRenderer) {
   const group = new THREE.Group();
   group.name = "Coal tub";
 
-  const rustTexture = new THREE.TextureLoader().load("/textures/rust.jpg");
+  const rustTexture = new THREE.TextureLoader().load("/textures/rust.jpg", (t) =>
+    gl.initTexture(t),
+  );
   rustTexture.colorSpace = THREE.SRGBColorSpace;
   rustTexture.wrapS = rustTexture.wrapT = THREE.RepeatWrapping;
   rustTexture.repeat.set(0.8, 0.8);
@@ -251,6 +254,9 @@ function createLore() {
 }
 
 export default function Lore() {
-  const model = useMemo(createLore, []);
+  const { gl, camera, scene } = useThree();
+  const model = useMemo(() => createLore(gl), []);
+  // Compile the shaders now instead of on the frame the camera first sees the lore
+  useEffect(() => void gl.compileAsync(model, camera, scene), []);
   return <primitive object={model} position={[0.2, 0.28, -62]} />;
 }

@@ -1,14 +1,15 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 type V3 = THREE.Vector3Tuple;
 
-function createMachine() {
+function createMachine(gl: THREE.WebGLRenderer) {
   const root = new THREE.Group();
   const parts: { geometry: THREE.BufferGeometry; material: THREE.MeshStandardMaterial }[] = [];
 
-  const rust = new THREE.TextureLoader().load("/textures/rust.jpg");
+  const rust = new THREE.TextureLoader().load("/textures/rust.jpg", (t) => gl.initTexture(t));
   rust.colorSpace = THREE.SRGBColorSpace;
   rust.wrapS = rust.wrapT = THREE.RepeatWrapping;
   rust.repeat.set(1.4, 1.4);
@@ -200,14 +201,11 @@ function createMachine() {
 }
 
 export default function MiningMachine() {
-  const model = useMemo(createMachine, []);
+  const { gl, camera, scene } = useThree();
+  const model = useMemo(() => createMachine(gl), []);
+  // Compile the shaders now instead of on the frame the camera first sees the machine
+  useEffect(() => void gl.compileAsync(model, camera, scene), []);
 
-  return (
-    <group position={[-0.6, 0, -85.7]} rotation={[0, -0.15, 0]}>
-      <primitive object={model} />
-      {/* Light from the two headlamps */}
-      <pointLight position={[-1.04, 1.28, 0.85]} color="#e6aa61" intensity={6} distance={6} />
-      <pointLight position={[1.04, 1.28, 0.85]} color="#e6aa61" intensity={6} distance={6} />
-    </group>
-  );
+  // The headlamp lights sit in Scene.tsx
+  return <primitive object={model} position={[-0.6, 0, -85.7]} rotation={[0, -0.15, 0]} />;
 }
