@@ -904,8 +904,7 @@ const hideYardAtmosphere =
 
 function World({ progress, reduced, mobile, onReady }: SceneProps) {
   const textures = useMemo(makeTextures, []);
-  const [loadLore, setLoadLore] = useState(false);
-  const [loadMachine, setLoadMachine] = useState(false);
+  const [loadModels, setLoadModels] = useState(false);
 
   useEffect(() => {
     rust.map = textures.rust;
@@ -922,11 +921,12 @@ function World({ progress, reduced, mobile, onReady }: SceneProps) {
     return () => Object.values(textures).forEach((texture) => texture.dispose());
   }, []);
 
-  // Load the heavier models a little before the camera reaches them
-  useFrame(() => {
-    if (!loadLore && progress.current > 0.14) setLoadLore(true);
-    if (!loadMachine && progress.current > 0.48) setLoadMachine(true);
-  });
+  // Load the heavier models right after the first frames, long before the camera reaches them,
+  // so their setup never lands in the middle of a camera move
+  useEffect(() => {
+    const id = setTimeout(() => setLoadModels(true), 500);
+    return () => clearTimeout(id);
+  }, []);
 
   return (
     <>
@@ -972,15 +972,17 @@ function World({ progress, reduced, mobile, onReady }: SceneProps) {
       <YardDetails />
       <CoalHeaps />
       <pointLight position={[-3, 3, -58]} color="#d7e0ea" intensity={45} distance={12} />
+      {/* Mining machine headlamps live here so the light count never changes:
+          a new light forces every lit material in the scene to recompile */}
+      <group position={[-0.6, 0, -85.7]} rotation={[0, -0.15, 0]}>
+        <pointLight position={[-1.04, 1.28, 0.85]} color="#e6aa61" intensity={6} distance={6} />
+        <pointLight position={[1.04, 1.28, 0.85]} color="#e6aa61" intensity={6} distance={6} />
+      </group>
       <Atmosphere reduced={reduced} mobile={mobile} />
       <CloudSky />
-      {loadLore && (
+      {loadModels && (
         <Suspense fallback={null}>
           <Lore />
-        </Suspense>
-      )}
-      {loadMachine && (
-        <Suspense fallback={null}>
           <MiningMachine />
         </Suspense>
       )}
